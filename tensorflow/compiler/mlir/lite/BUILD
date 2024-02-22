@@ -1328,6 +1328,7 @@ tf_cc_binary(
         "@llvm-project//mlir:Transforms",
         "@local_xla//xla/translate/hlo_to_mhlo:translate",
         "@stablehlo//:stablehlo_ops",
+        "@stablehlo//:stablehlo_passes",
     ],
 )
 
@@ -1391,6 +1392,8 @@ cc_library(
         "@llvm-project//mlir:Support",
         "@llvm-project//mlir:Transforms",
         "@local_xla//xla/mlir_hlo:mhlo_passes",
+        "@stablehlo//:stablehlo_pass_inc_gen",
+        "@stablehlo//:stablehlo_passes",
         "@stablehlo//stablehlo/experimental:experimental_stablehlo_passes",
     ],
 )
