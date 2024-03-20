@@ -95,3 +95,23 @@ module {
   }
 }
 
+// -----
+// Identity chains can be removed.
+
+module {
+  // CHECK-LABEL: identity_chain
+  func.func @identity_chain() {
+    %cst = "tf.Const"() <{value = dense<""> : tensor<2x!tf_type.string>}> : () -> tensor<2x!tf_type.string>
+    %cst_0 = "tf.Const"() <{value = dense<["w/.ATTRIBUTES/VARIABLE_VALUE", "_CHECKPOINTABLE_OBJECT_GRAPH"]> : tensor<2x!tf_type.string>}> : () -> tensor<2x!tf_type.string>
+    %cst_1 = "tf.Const"() <{value = dense<"/variables"> : tensor<!tf_type.string>}> : () -> tensor<!tf_type.string>
+    %0 = "tf.VarHandleOp"() <{container = "", shared_name = "w"}> : () -> tensor<!tf_type.resource<tensor<3x1xi32>>>
+    // CHECK-NOT: tf.RestoreV2
+    %1 = "tf.RestoreV2"(%cst_1, %cst_0, %cst) : (tensor<!tf_type.string>, tensor<2x!tf_type.string>, tensor<2x!tf_type.string>) -> (tensor<*xi32>)
+    // CHECK-NOT: tf.Identity
+    %2 = "tf.Identity"(%1) : (tensor<*xi32>) -> tensor<*xi32>
+    // CHECK: tf.IfrtRestoreVariableOp
+    "tf.AssignVariableOp"(%0, %2) : (tensor<!tf_type.resource<tensor<3x1xi32>>>, tensor<*xi32>) -> ()
+    return
+  }
+}
+

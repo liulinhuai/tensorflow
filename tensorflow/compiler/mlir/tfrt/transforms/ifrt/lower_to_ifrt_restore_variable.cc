@@ -16,8 +16,10 @@ limitations under the License.
 #include <memory>
 #include <vector>
 
+#include "absl/container/flat_hash_set.h"
 #include "llvm/Support/Casting.h"
 #include "mlir/IR/Attributes.h"  // from @llvm-project
+#include "mlir/IR/Block.h"  // from @llvm-project
 #include "mlir/IR/Builders.h"  // from @llvm-project
 #include "mlir/IR/BuiltinAttributes.h"  // from @llvm-project
 #include "mlir/IR/BuiltinOps.h"  // from @llvm-project
@@ -49,10 +51,23 @@ class LowerToIfrtRestoreVariablePass
   void runOnOperation() override {
     mlir::ModuleOp module = getOperation();
 
+    absl::flat_hash_set<mlir::Block*> restoration_blocks;
     std::vector<mlir::TF::RestoreV2Op> restore_ops;
     module.walk([&](mlir::TF::RestoreV2Op restore_op) {
       restore_ops.push_back(restore_op);
+      restoration_blocks.insert(restore_op->getBlock());
     });
+
+    // Only remove identity ops from blocks containing restore op because
+    // identity ops in inference functions cannot be optimized away uniformly.
+    for (mlir::Block* block : restoration_blocks) {
+      block->walk([](mlir::Operation* op) {
+        if (llvm::isa<mlir::TF::IdentityOp, mlir::TF::IdentityNOp>(op)) {
+          op->replaceAllUsesWith(op->getOperands());
+          op->erase();
+        }
+      });
+    }
 
     for (const auto& restore_op : restore_ops) {
       if (mlir::failed(RewriteRestore(restore_op))) {
