@@ -125,19 +125,22 @@ absl::StatusOr<HloInstruction*> GatherSimplifier::ExpandInstruction(
   return MaybeTranspose(result, output_perm);
 }
 
+bool GatherSimplifier::IsSimplifiedGather(const HloGatherInstruction* gather) {
+  auto* start_indices = gather->operands()[1];
+  const auto& dims = gather->gather_dimension_numbers();
+  return start_indices->shape().rank() == 2 && dims.index_vector_dim() == 1 &&
+         IsIdentityPermutation(dims.start_index_map()) &&
+         dims.collapsed_slice_dims().empty() &&
+         *dims.offset_dims().begin() == 1 &&
+         *dims.offset_dims().rbegin() == dims.offset_dims().size();
+}
+
 bool GatherSimplifier::InstructionMatchesPattern(HloInstruction* inst) {
   auto* gather = DynCast<HloGatherInstruction>(inst);
   if (!gather) {
     return false;
   }
-
-  auto* start_indices = gather->operands()[1];
-  const auto& dims = gather->gather_dimension_numbers();
-  return start_indices->shape().rank() != 2 || dims.index_vector_dim() != 1 ||
-         !IsIdentityPermutation(dims.start_index_map()) ||
-         !dims.collapsed_slice_dims().empty() ||
-         *dims.offset_dims().begin() != 1 ||
-         *dims.offset_dims().rbegin() != dims.offset_dims().size();
+  return !IsSimplifiedGather(gather);
 }
 
 }  // namespace xla
